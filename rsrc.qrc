@@ -1,0 +1,38 @@
+<RCC>
+  <qresource prefix="/theme">
+    <!-- Theme -->
+    <file alias="dark.qss">assets/theme/dark.qss</file>
+    <file alias="pattern.png">assets/theme/pattern.png</file>
+  </qresource>
+
+  <qresource prefix="/fonts">
+    <!-- Fonts -->
+    <file alias="Bitcount-Regular.ttf">assets/fonts/Bitcount/static/Bitcount-Regular.ttf</file>
+    <file alias="FiraCode-Regular.ttf">assets/fonts/Fira_Code/static/FiraCode-Regular.ttf</file>
+    <file alias="MarckScript-Regular.ttf">assets/fonts/Marck/MarckScript-Regular.ttf</file>
+    <file alias="Marmelad-Regular.ttf">assets/fonts/Marmelad/Marmelad-Regular.ttf</file>
+    <file alias="Bilbo-Regular.ttf">assets/fonts/Bilbo/Bilbo-Regular.ttf</file>
+  </qresource>
+
+  <qresource prefix="/logo">
+    <!-- Logo -->
+    <file alias="logo.png">assets/icons/logo.png</file>
+  </qresource>
+
+  <qresource prefix="/svg">
+    <file alias="arrow.svg">assets/icons/pack-svg/arrow.svg</file>
+    <file alias="component.svg">assets/icons/pack-svg/component.svg</file>
+  </qresource>
+
+  <qresource prefix="/png">
+    <file alias="close-gray.png">assets/icons/pack-png/close-gray.png</file>
+    <file alias="close.png">assets/icons/pack-png/close.png</file>
+    <file alias="empty.png">assets/theme/png/empty.png</file>
+  </qresource>
+
+  <qresource prefix="/maps">
+    <file alias="india.geojson">assets/maps/india.geojson</file>
+    <file alias="india-state.geojson">assets/maps/india-state.geojson</file>
+    <file alias="india-simplified.json">assets/maps/india-simplified.json</file>
+  </qresource>
+</RCC>

@@ -1,0 +1,17 @@
+__pycache__/
+*.py[codz]
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+.venv/
+venv/
+env/
+ENV/
+.idea/
+.vscode/
+build/
+dist/
+*.egg-info/

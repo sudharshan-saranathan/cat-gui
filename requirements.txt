@@ -1,0 +1,7 @@
+PySide6
+QtAwesome
+requests
+pyqtgraph
+pandas
+geopandas
+pyomo
