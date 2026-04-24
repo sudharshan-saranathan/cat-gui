@@ -2,6 +2,7 @@
 # Description: Results explorer for optimization runs — table of scenarios with plot viewer.
 
 import json
+import re
 from PySide6 import QtWidgets, QtCore, QtGui
 from gui.widgets import VLayout, GLayout
 
@@ -17,6 +18,7 @@ class ResultsWindow(QtWidgets.QFrame):
     """Results explorer with scenario table and decision variable plotter."""
 
     _runs = []  # class-level: list of {name, info} dicts
+    _PATHWAYS = ("BFBOF", "CoalDRI", "NGDRI", "H2DRI")
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -396,6 +398,10 @@ class ResultsWindow(QtWidgets.QFrame):
                     "CCUS Plants",
                     "Total Plants",
                     "Steel Production (MTPa)",
+                    "BFBOF Share (%)",
+                    "CoalDRI Share (%)",
+                    "NGDRI Share (%)",
+                    "H2DRI Share (%)",
                     "CO₂ Emissions (Mt/yr)",
                     "CO₂ Intensity (t/t)",
                     "Total Cost (₹T/yr)",
@@ -413,6 +419,7 @@ class ResultsWindow(QtWidgets.QFrame):
                 intensity = run["info"].get("co2_intensity", {})
                 cpp = run["info"].get("cost_per_tonne", {})
                 ccus_pct = run["info"].get("ccus_penetration", {})
+                pathway_shares = self._pathway_shares_by_year(run["info"])
 
                 # Calculate fleet-wide no_ccus and ccus from counts
                 counts_data = run["info"].get("counts", {})
@@ -432,6 +439,10 @@ class ResultsWindow(QtWidgets.QFrame):
                             f"{ccus_dict.get(year_str, 0):.0f}",
                             f"{counts_dict.get(year_str, 0):.0f}",
                             f"{steel.get(year_str, 0):.1f}",
+                            f"{pathway_shares.get(year_str, {}).get('BFBOF', 0):.1f}",
+                            f"{pathway_shares.get(year_str, {}).get('CoalDRI', 0):.1f}",
+                            f"{pathway_shares.get(year_str, {}).get('NGDRI', 0):.1f}",
+                            f"{pathway_shares.get(year_str, {}).get('H2DRI', 0):.1f}",
                             f"{emissions.get(year_str, 0):.2f}",
                             f"{intensity.get(year_str, 0):.4f}",
                             f"{cost.get(year_str, 0):.3f}",
@@ -509,6 +520,49 @@ class ResultsWindow(QtWidgets.QFrame):
         layout.addWidget(self._plot_widget)
         old_widget.setParent(None)
         old_widget.deleteLater()
+
+    @classmethod
+    def _instance_capacity_mtpa(cls, instance_name: str) -> float:
+        match = re.search(r"_(\d+)MTPa_", instance_name)
+        return float(match.group(1)) if match else 0.0
+
+    @classmethod
+    def _instance_pathway(cls, instance_name: str) -> str | None:
+        for pathway in cls._PATHWAYS:
+            if pathway.lower() in instance_name.lower():
+                return pathway
+        return None
+
+    @classmethod
+    def _pathway_shares_by_year(cls, info: dict) -> dict[str, dict[str, float]]:
+        counts = info.get("counts", {})
+        annual_steel = info.get("annual_steel", {})
+        shares = {}
+
+        for year_str in annual_steel.keys():
+            pathway_steel = {pathway: 0.0 for pathway in cls._PATHWAYS}
+            year_data = counts.get(year_str, {})
+
+            for instance_name, instance_data in year_data.items():
+                pathway = cls._instance_pathway(instance_name)
+                if not pathway:
+                    continue
+
+                total_plants = (
+                    float(instance_data.get("no_ccus", 0))
+                    + float(instance_data.get("ccus", 0))
+                )
+                pathway_steel[pathway] += (
+                    total_plants * cls._instance_capacity_mtpa(instance_name)
+                )
+
+            total_steel = sum(pathway_steel.values())
+            shares[year_str] = {
+                pathway: (value / total_steel * 100) if total_steel > 0 else 0.0
+                for pathway, value in pathway_steel.items()
+            }
+
+        return shares
 
     def _on_save(self, row: int) -> None:
         """Save scenario to HDF5 via server."""

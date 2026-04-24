@@ -25,6 +25,13 @@ OBJECTIVES = {
     ),
 }
 
+INITIAL_PATHWAY_DEFAULTS = {
+    "BFBOF": round(100.0 * 10 / 11, 1),
+    "CoalDRI": 0.0,
+    "NGDRI": round(100.0 * 1 / 11, 1),
+    "H2DRI": 0.0,
+}
+
 
 class ObjectiveSetup(QtWidgets.QFrame):
 
@@ -231,7 +238,64 @@ class ObjectiveSetup(QtWidgets.QFrame):
 
         self._emissions_cap_checkbox.toggled.connect(self._emissions_factor_spin.setEnabled)
 
-        # === 3. ABATEMENT COST CURVES ===
+        # === 3. INITIAL TECH DISTRIBUTION ===
+        layout.addSpacing(8)
+        dist_label = QtWidgets.QLabel("Initial Tech Distribution")
+        dist_label.setStyleSheet("font-weight: bold; font-size: 13px; color: white;")
+        layout.addWidget(dist_label)
+        dist_line = QtWidgets.QFrame()
+        dist_line.setFrameShape(QtWidgets.QFrame.Shape.HLine)
+        dist_line.setStyleSheet("color: white;")
+        layout.addWidget(dist_line)
+
+        dist_frame = QtWidgets.QFrame()
+        dist_layout = QtWidgets.QVBoxLayout(dist_frame)
+        dist_layout.setContentsMargins(24, 4, 0, 4)
+        dist_layout.setSpacing(6)
+
+        dist_hint = QtWidgets.QLabel(
+            "Shares are percentages of the initial 2025 fleet and are normalized by the solver."
+        )
+        dist_hint.setWordWrap(True)
+        dist_hint.setStyleSheet("color: #c7d0d9;")
+        dist_layout.addWidget(dist_hint)
+
+        grid = QtWidgets.QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(6)
+
+        self._pathway_spins = {}
+        for row, pathway in enumerate(INITIAL_PATHWAY_DEFAULTS):
+            label = QtWidgets.QLabel(f"{pathway}:")
+            spin = QtWidgets.QDoubleSpinBox()
+            spin.setRange(0.0, 100.0)
+            spin.setDecimals(1)
+            spin.setSingleStep(1.0)
+            spin.setSuffix("%")
+            spin.setFixedWidth(90)
+            spin.setValue(INITIAL_PATHWAY_DEFAULTS[pathway])
+            spin.valueChanged.connect(self._update_distribution_total)
+            self._pathway_spins[pathway] = spin
+            grid.addWidget(label, row, 0)
+            grid.addWidget(spin, row, 1)
+
+        dist_layout.addLayout(grid)
+
+        footer = QtWidgets.QHBoxLayout()
+        footer.setContentsMargins(0, 0, 0, 0)
+        footer.setSpacing(8)
+        self._distribution_total_label = QtWidgets.QLabel()
+        footer.addWidget(self._distribution_total_label)
+        footer.addStretch()
+        reset_btn = QtWidgets.QPushButton("Reset Default Mix")
+        reset_btn.clicked.connect(self._reset_initial_distribution)
+        footer.addWidget(reset_btn)
+        dist_layout.addLayout(footer)
+        layout.addWidget(dist_frame)
+        self._update_distribution_total()
+
+        # === 4. ABATEMENT COST CURVES ===
         layout.addSpacing(8)
         curves_label = QtWidgets.QLabel("Abatement Cost Curves")
         curves_label.setStyleSheet("font-weight: bold; font-size: 13px; color: white;")
@@ -285,7 +349,7 @@ class ObjectiveSetup(QtWidgets.QFrame):
         layout.addWidget(ccus_curve_frame)
         self._ccus_curve_checkbox.toggled.connect(self._ccus_rate_spin.setEnabled)
 
-        # === 4. SOLVER ===
+        # === 5. SOLVER ===
         layout.addSpacing(8)
         solver_label = QtWidgets.QLabel("Solver")
         solver_label.setStyleSheet("font-weight: bold; font-size: 13px; color: white;")
@@ -304,6 +368,19 @@ class ObjectiveSetup(QtWidgets.QFrame):
         layout.addWidget(self.solver_combo)
 
         layout.addStretch()
+
+    def _update_distribution_total(self) -> None:
+        total = sum(spin.value() for spin in self._pathway_spins.values())
+        if abs(total - 100.0) < 0.05:
+            color = "lightgreen"
+        else:
+            color = "gold"
+        self._distribution_total_label.setText(f"Total: {total:.1f}%")
+        self._distribution_total_label.setStyleSheet(f"color: {color};")
+
+    def _reset_initial_distribution(self) -> None:
+        for pathway, default_value in INITIAL_PATHWAY_DEFAULTS.items():
+            self._pathway_spins[pathway].setValue(default_value)
 
     def selected_objective(self) -> str:
         """Return the objective key, e.g. 'minimize cost'."""
@@ -367,6 +444,13 @@ class ObjectiveSetup(QtWidgets.QFrame):
     def min_plant_lifetime(self) -> int:
         """Return minimum contiguous plant operating lifetime in years."""
         return self._min_lifetime_spin.value()
+
+    def initial_pathway_distribution(self) -> dict[str, float]:
+        """Return user-specified initial pathway shares in percent."""
+        return {
+            pathway: spin.value()
+            for pathway, spin in self._pathway_spins.items()
+        }
 
     def selected_solver(self) -> str:
         solver_map = {

@@ -581,6 +581,7 @@ class OptClient:
         enable_emissions_cap: bool = True,
         h2dri_learning_rate: float = 0.028,
         ccus_learning_rate: float = 0.014,
+        initial_pathway_distribution: Optional[Dict[str, float]] = None,
     ) -> Optional[Dict[str, Any]]:
 
         try:
@@ -605,6 +606,8 @@ class OptClient:
                 payload["inflation_rate"] = inflation_rate
             if emissions_factor is not None:
                 payload["emissions_factor"] = emissions_factor
+            if initial_pathway_distribution is not None:
+                payload["initial_pathway_distribution"] = initial_pathway_distribution
             return self._api_post("/opt/solve", payload)
 
         except Exception as e:
@@ -628,6 +631,7 @@ class OptClient:
         relax_integers: bool = False,
         h2dri_learning_rate: float = 0.028,
         ccus_learning_rate: float = 0.014,
+        initial_pathway_distribution: Optional[Dict[str, float]] = None,
     ) -> Optional[Dict[str, Any]]:
 
         try:
@@ -650,6 +654,8 @@ class OptClient:
                 payload["inflation_rate"] = inflation_rate
             if emissions_factor is not None:
                 payload["emissions_factor"] = emissions_factor
+            if initial_pathway_distribution is not None:
+                payload["initial_pathway_distribution"] = initial_pathway_distribution
             return self._api_post("/opt/pareto", payload, timeout=900.0)
 
         except Exception as e:

@@ -93,6 +93,9 @@ class ConOptWindow(QtWidgets.QFrame):
     def _ccus_learning_rate(self) -> float:
         return self._obj_setup.ccus_learning_rate()
 
+    def _initial_pathway_distribution(self) -> dict[str, float]:
+        return self._obj_setup.initial_pathway_distribution()
+
     # ------------------------------------------------------------------
 
     @QtCore.Slot()
@@ -105,7 +108,11 @@ class ConOptWindow(QtWidgets.QFrame):
 
             resp = api.session.post(
                 f"{api.base_URL}/opt/preview",
-                json={"objective": self._objective(), "alpha": self._alpha()},
+                json={
+                    "objective": self._objective(),
+                    "alpha": self._alpha(),
+                    "initial_pathway_distribution": self._initial_pathway_distribution(),
+                },
                 headers={"X-Client-ID": uid, "Content-Type": "application/json"},
                 timeout=30,
             )
@@ -150,6 +157,17 @@ class ConOptWindow(QtWidgets.QFrame):
             f"\nYears      : {info['years'][0]} – {info['years'][1]}"
             f"\nVariables  : {info['variables']:,}"
             f"\nConstraints: {info['constraints']:,}"
+            + (
+                "\nInitial Mix: "
+                + ", ".join(
+                    f"{pathway} {share:.1f}%"
+                    for pathway, share in info.get(
+                        "initial_pathway_distribution", {}
+                    ).items()
+                )
+                if info.get("initial_pathway_distribution")
+                else ""
+            )
         )
         hdr_label = QtWidgets.QLabel(header)
         hdr_label.setStyleSheet("font-family: monospace; font-size: 12px;")
@@ -233,6 +251,7 @@ class ConOptWindow(QtWidgets.QFrame):
                 enable_emissions_cap=self._enable_emissions_cap(),
                 h2dri_learning_rate=self._h2dri_learning_rate(),
                 ccus_learning_rate=self._ccus_learning_rate(),
+                initial_pathway_distribution=self._initial_pathway_distribution(),
             )
 
             # 3. Handle result
@@ -331,6 +350,7 @@ class ConOptWindow(QtWidgets.QFrame):
                 relax_integers=relax_integers,
                 h2dri_learning_rate=self._h2dri_learning_rate(),
                 ccus_learning_rate=self._ccus_learning_rate(),
+                initial_pathway_distribution=self._initial_pathway_distribution(),
             )
 
             if not response or response.get("status") != "OK":
