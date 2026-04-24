@@ -289,7 +289,7 @@ class TabWidget(QtWidgets.QTabWidget):
         Create and configure the corner toolbar (template mode only).
         """
 
-        # 1. Create toolbar with new tab action
+        # 1. Create a toolbar with a new tab action
         actions = [
             (
                 qta_icon("mdi.plus", color="gray", color_active="white"),
@@ -312,9 +312,10 @@ class TabWidget(QtWidgets.QTabWidget):
             trailing=True,
             floatable=False,
             movable=False,
+            iconSize=QtCore.QSize(16, 16),
         )
 
-        # 2. Add finder field to toolbar
+        # 2. Add a finder field to the toolbar
         toolbar.addWidget(
             finder := Field(
                 parent=toolbar,
@@ -325,7 +326,7 @@ class TabWidget(QtWidgets.QTabWidget):
         finder.setObjectName("finder")
         finder.returnPressed.connect(self._find)
 
-        # 3. Set corner widget
+        # 3. Set the toolbar as a corner widget
         self.setCornerWidget(toolbar, QtCore.Qt.Corner.TopRightCorner)
 
     def _find(self) -> None:
@@ -335,7 +336,7 @@ class TabWidget(QtWidgets.QTabWidget):
 
         from gui.widgets.viewer import Viewer
 
-        # Get finder field and current viewer
+        # Get the finder field and current viewer
         toolbar = self.cornerWidget()
         finder = toolbar.findChild(Field, "finder") if toolbar else None
         string = finder.text() if finder else ""

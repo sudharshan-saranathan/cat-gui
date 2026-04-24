@@ -1,0 +1,752 @@
+* {
+    background                  : #232a2e;
+}
+
+QMainWindow:separator {
+    background                  : transparent;
+    border                      : none;
+    margin                      : 2px;
+    padding                     : 2px;
+}
+
+QToolTip {
+    background                  : #363e41;
+    color                       : white;
+    border                      : none;
+    border-radius               : 4px;
+    padding                     : 4px;
+}
+
+QOpenGLWidget {
+    background                  : black;
+    border                      : none;
+    border-radius               : 4px;
+}
+
+QFrame#startup-dialog-container {
+    background                  : #232a2e;
+    padding                     : 0px;
+    border-radius               : 6px;
+    border                      : 1px solid darkgray;
+}
+
+QWidget {
+    background                  : transparent;
+}
+
+QRadioButton {
+    background                  : transparent;
+    width                       : 16px;
+    color                       : #efefef;
+    spacing                     : 6px;
+    padding                     : 2px;
+}
+
+QRadioButton::indicator {
+    width                       : 6px;
+    height                      : 6px;
+    border-radius               : 3px;
+    background                  : transparent;
+}
+
+QRadioButton::indicator:hover {
+    background                  : white;
+}
+
+QRadioButton::indicator:checked {
+    border-color                : darkcyan;
+    background                  : darkcyan;
+}
+
+QRadioButton::indicator:checked:hover {
+    border-color                : darkcyan;
+    background                  : darkcyan;
+}
+
+QTitleBar {
+    background                  : transparent;
+}
+
+
+QGroupBox {
+    background                  : transparent;
+    border-radius               : 4px;
+    border                      : 1px solid #363e41;
+    margin                      : 8px 4px 4px 4px;
+    padding-top                 : 4px;
+}
+
+QGroupBox::title {
+    subcontrol-origin           : margin;
+    subcontrol-position         : top center;
+    margin                      : 2px 0px;
+    padding                     : 0px 0px;
+    color                       : gray;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- General Widget customization
+    The following section customizes the appearance of several general widgets including QStackedWidget,
+    QLabel, QFrame, QGraphicsView, and QStatusBar.
+*/
+
+QStackedWidget {    /* Default appearance of stacked widgets */
+    background                  : transparent;
+    border                      : none;
+    border-radius               : 4px;
+}
+
+QLabel {
+    background                  : transparent;
+    color                       : #efefef;
+}
+
+QFrame {
+    background                  : transparent;
+    border                      : none;
+}
+
+QGraphicsView {                                     /* Default appearance of graphics view widgets */
+    background                  : #efefef;
+    border-radius               : 4px;
+    margin                      : 0px 4px 0px 0px;
+}
+
+QStatusBar { /* Default appearance of status bar */
+    background                  : transparent;
+    border-radius               : 4px;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Slider customization
+*/
+
+QSlider {
+    background: transparent;
+    min-height: 20px; /* Ensure room for the handle */
+}
+
+QSlider::groove:horizontal {
+    border: 1px solid #bbbbbb;
+    background: #eeeeee; /* Light gray track */
+    height: 6px;
+    border-radius: 3px;
+    margin: 0px; /* Adjust margin to vertically center the groove relative to handle */
+}
+
+QSlider::handle:horizontal {
+    background: #3a86ff; /* Custom color (e.g., blue) */
+    border: 1px solid #3a86ff;
+    width: 8px;
+    height: 8px;
+    margin: -7px 0; /* Negative vertical margin centers handle on groove */
+    border-radius: 4px; /* Circle shape */
+}
+
+QSlider::handle:horizontal:hover {
+    background: #0056b3;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Spin Box customization
+*/
+
+QSpinBox {
+    background                  : #40474D;
+    color                       : white;
+    border-radius               : 4px;
+}
+
+QSpinBox {
+    padding                     : 3px 0px 3px 4px;
+}
+
+QSpinBox::up-button {
+    image                       : url(assets/icons/pack-svg/caret-up.svg);
+    height                      : 12px;
+    subcontrol-origin           : border;
+    subcontrol-position         : top right;
+    background                  : transparent;
+}
+
+QSpinBox::down-button {
+    image                       : url(assets/icons/pack-svg/caret-down.svg);
+    height                      : 12px;
+    subcontrol-origin           : border;
+    subcontrol-position         : bottom right;
+    background                  : transparent;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Menu Bar customization
+    The following section customizes the appearance of the menu bar (QMenuBar) and its items. It defines styles for the
+    menu bar background, items, hover effects, and selected states.
+*/
+
+QMenuBar {          /* Default appearance of all widgets */
+    color                      : white;
+    background: qlineargradient(
+        x1: 0, y1: 0,
+        x2: 1, y2: 0,
+        stop: 0 #232a2e,
+        stop: 1 #393e41
+    );
+
+    padding                     : 4px;
+    border-top-left-radius      : 8px;
+    border-top-right-radius     : 8px;
+}
+
+QMenuBar::item {   /* Menu bar item style */
+    background                  : transparent;
+    padding                     : 2px 6px 2px 2px;
+    margin                      : 2px 6px 2px 2px;
+    border                      : none;
+    color                       : gray;
+}
+
+QMenuBar::item:hover, QMenuBar::item:selected { /* Hover effect for menu bar items */
+    color                       : white;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+--  Check Box customization
+*/
+
+QCheckBox {
+    background                  : transparent;
+    border-radius               : 2px;
+}
+
+QCheckBox::indicator {
+    background                  : #efefef;
+    width                       : 10px;
+    height                      : 10px;
+    border-radius               : 2px;
+}
+
+QCheckBox::indicator:checked {
+    background                  : #0078d7;
+    width                       : 10px;
+    height                      : 10px;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Dock Widget customization
+    The following section customizes the appearance of QDockWidget and its title bar.
+*/
+
+QDockWidget {                                 /* Dock widget style */
+    background                  : #efefef;
+    border                      : none;
+    border-radius               : 4px;
+}
+
+QDockWidget::title {                           /* Dock widget title bar style */
+    background                  : gray;
+    color                       : white;
+    padding                     : 2px;
+    margin                      : 2px;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Tab Widget customization
+    The following section customizes the appearance of QTabWidget (the central widget in the main windows) and its tabs.
+    It defines styles for the tab bar, individual tabs, selected tabs, hover effects, and close buttons.
+*/
+
+QTabWidget::pane {                              /* Tab pane style */
+    background                  : #40474d;
+    border-radius               : 4px;
+}
+
+QTabWidget::tab-bar {                                      /* Tab bar style */
+    background                  : transparent;
+    left                        : 0px;
+}
+
+QTabWidget QTabBar::tab {                                  /* Individual tab style */
+    height                      : 24px;
+    color                       : white;
+    width                       : 80px;
+    background                  : transparent;
+    border-radius               : 4px;
+    border                      : none;
+    padding                     : 0px 16px 0px 8px;
+    margin                      : 4px 4px 4px 0px;
+    left                        : 0px;
+}
+
+QTabBar::tab:hover {                         /* Style for the selected tab */
+    background                  : #40474d;
+    color                       : #efefef;
+}
+
+QTabBar::tab:selected {
+    background                  : #efefef;
+    color                       : #40474d;
+}
+
+QTabBar::close-button { /* Close button style */
+    subcontrol-position         : right center;
+    subcontrol-origin           : padding;
+    margin-right                : 2px;
+    margin-top                  : 0px;
+    image                       : url(:/png/close-gray.png);
+    width                       : 12px;
+    height                      : 12px;
+    background-color            : transparent;
+}
+
+QTabBar::close-button:hover {
+    background                  : transparent;
+    border-radius               : 2px;
+    image                       : url(:/png/close.png);
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Toolbar customization:
+    The following section customizes the appearance of the navigation bar (QToolBar) and its buttons. It defines styles
+    for the toolbar, buttons, hover effects, and disabled states.
+*/
+
+QToolBar {                                      /* Navigation bar style */
+    background                  : transparent;
+    border                      : none;
+    margin                      : 0px;
+    padding                     : 0px;
+}
+
+QToolBar QToolButton {
+    background                  : transparent;
+    border-radius               : 4px;
+    margin                      : 0px;
+    padding                     : 0px;
+    color                       : white;
+}
+
+QToolBar::separator {
+    width                       : 2px;
+    margin                      : 2px 8px 2px 8px;
+    background                  : #3e3e3e;
+    border-radius               : 2px;
+}
+
+QToolBar#traffic-lights {
+    border-radius               : 4px;
+}
+
+QToolBar#traffic-lights QToolButton:hover {
+    background                  : transparent;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- QToolButton customization
+    The following section customizes the appearance of standalone QToolButton widgets
+    (outside of toolbars). It defines styles for normal, hover, pressed, and checked states.
+*/
+
+QToolButton {
+    background                  : transparent;
+    border-radius               : 4px;
+    padding                     : 2px;
+    color                       : white;
+    outline                     : 0px;
+}
+
+QToolButton::menu-indicator {
+    background                  : transparent;
+    width                       : 0px;
+    image                       : none;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+-- Dialog customization
+*/
+
+QDialog#startup-dialog {
+    background                  : transparent;
+    border-radius               : 4px;
+    border                      : 2px solid gray;
+}
+
+QDialog {
+    background                  : #393e41;
+    border-radius               : 4px;
+}
+
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- QMenu customization:
+    The following section customizes the appearance of the context-menu (QMenu) and its items. It defines styles for the
+    menu background, items, hover effects, and disabled states.
+*/
+
+QMenu {                                                 /* Context-menu style */
+    background                  : #232a2e;
+    padding                     : 1px;
+    border                      : 1px solid #2c363f;
+    border-radius               : 4px;
+}
+
+QMenu::item {                                           /* Individual menu item style */
+    width                       : 120px;
+    color                       : white;
+    background                  : transparent;
+    border-radius               : 4px;
+    padding                     : 4px;
+    margin                      : 1px 0px 1px 0px;
+}
+
+QMenu::item:selected {                                  /* Hover effect for menu items */
+    background                  : #4a556d;
+    color                       : white;
+    border                      : none;
+}
+
+QMenu::indicator {
+    width                       : 16px;
+    height                      : 16px;
+}
+
+QMenu::indicator:checked, QMenu::indicator:exclusive:checked {
+    image                       : url(assets/icons/check.svg);
+}
+
+QMenu::right-arrow {                                    /* Submenu arrow style */
+    width                       : 16px;
+    height                      : 16px;
+    image                       : url(assets/icons/pack-svg/caret-right.svg);
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- QTreeWidget customization:
+    The following section customizes the appearance of a QTreeWidget and associated items. It defines styles for the top
+    level and child items, hover effects, and disabled states.
+*/
+
+QTreeWidget {
+    background                  : transparent;
+    border                      : none;
+    outline                     : 0px;
+    border-radius               : 4px;
+}
+
+QTreeWidget QHeaderView::section {
+    background                  : #40474d;
+    color                       : white;
+    margin                      : 2px 2px 2px 0px;
+    padding-left                : 8px;
+    padding-right               : 8px;
+    border-radius               : 4px;
+}
+
+QTreeWidget QHeaderView::section:last {
+    margin-right                : 0px;
+}
+
+QTreeWidget::item {
+    background                  : transparent;
+    margin                      : 0px;
+    padding                     : 4px;
+    color                       : gray;
+    height                      : 20px;
+    border                      : none;
+}
+
+QTreeWidget::item:has-children {
+    color                       : white;
+}
+
+QTreeWidget::item:hover {
+    background                  : #363e41;
+}
+
+QTreeWidget::item:selected {
+    font-weight                 : bold;
+    background                  : #363e41;
+}
+
+QTreeWidget::branch, QTreeWidget::branch:selected {
+    background: transparent;
+}
+
+QTreeWidget::branch:!has-children {
+    border-image: none;
+    image: none;
+}
+
+QTreeWidget::branch:closed:has-children {
+    background: transparent;
+    image: url(assets/icons/pack-svg/caret-right.svg);
+}
+
+QTreeWidget::branch:open:has-children {
+    border-image: none;
+    image: url(assets/icons/pack-svg/caret-down.svg);
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+-- Table Widget customization:
+*/
+
+QTableWidget {
+    background                  : #40474d;
+    border-radius               : 4px;
+    outline                     : 0px;
+    margin                      : 0px;
+}
+
+QTableWidget QComboBox,
+QTableWidget QLineEdit
+{
+    margin                      : 2px;
+}
+
+QTableWidget QTableCornerButton::section {
+    background                  : transparent;
+    border                      : none;
+}
+
+QTableWidget QHeaderView::section {
+    background                  : transparent;
+    color                       : gray;
+    margin-right                : 4px;
+    border-radius               : 4px;
+    height                      : 24px;
+    border                      : none;
+}
+
+QTableWidget QHeaderView::section:last {
+    margin-right                : 0px;
+}
+
+QTableWidget::item {
+    background                  : transparent;
+    color                       : white;
+    border                      : none;
+    outline                     : 0px;
+    padding                     : 0px 0px 0px 4px;
+}
+
+QTableWidget::item:selected {
+    background                  : #3d586b;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Scrollbar customization:
+    The following section customizes the appearance of scrollbars (QScrollBar) for both vertical and horizontal orientations,
+    including background, size, margins, border radius, and handles.
+*/
+
+QScrollBar:vertical {                             /* Vertical scrollbar style */
+    background                  : transparent;
+    width                       : 16px;
+}
+
+QScrollBar:horizontal {                             /* Horizontal scrollbar style */
+    background                  : transparent;
+    height                      : 16px;
+}
+
+QScrollBar::handle:horizontal, QScrollBar::handle:vertical {
+    background                  : lightslategray;
+    border-radius               : 2px;
+    border                      : none;
+    margin                      : 2px;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical, QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background                  : transparent;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical, QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    background                  : transparent;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Combo-box customization
+*/
+
+QComboBox {
+    color                           : white;
+    height                          : 24px;
+    border-radius                   : 4px;
+    background                      : #363e41;
+    padding                         : 0px 2px 0px 4px;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin               : padding;
+    subcontrol-position             : top right;
+    background                      : transparent;
+}
+
+QComboBox::down-arrow {
+    height                          : 16px;
+    width                           : 16px;
+    image                           : url(assets/icons/pack-png/caret-down.png);
+    margin-right                    : 4px;
+}
+
+QComboBox QAbstractItemView {
+    background                      : #393e41;
+    color                           : white;
+    border-radius                   : 0px;
+    selection-background-color      : #4a556d;
+}
+
+QComboBox QAbstractItemView::item {
+    width                           : 80px;
+    padding                         : 2px;
+}
+/*
+QComboBox QAbstractItemView::item:selected {
+    background-color                : #4a556d;
+    color                           : white;
+}
+*/
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Input Dialog customization
+*/
+
+QInputDialog {
+    color                       : white;
+    background                  : lightslategray;
+}
+
+QInputDialog QLabel {
+    background                  : #393e41;
+    color                       : white;
+    padding                     : 1px;
+}
+
+QInputDialog QLineEdit {
+    background                  : transparent;
+    color                       : white;
+    padding                     : 0px;
+    border-radius               : 4px;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+-- Text Edit and Line Edit customization
+*/
+
+QTextEdit {
+    background                  : #363e41;
+    color                       : white;
+    padding                     : 2px;
+    border-radius               : 4px;
+}
+
+QTextEdit:focus {
+    border-bottom-left-radius   : 0px;
+    border-bottom-right-radius  : 0px;
+    border-bottom               : 2px solid #ffcb00;
+}
+
+QLineEdit {
+    background                  : #363e41;
+    color                       : white;
+    border-radius               : 4px;
+    height                      : 24px;
+    padding-left                : 4px;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- Push button customization
+*/
+
+QPushButton, QPushButton:enabled {
+    color                       : white;
+    padding                     : 4px;
+    border-radius               : 4px;
+    background                  : gray;
+}
+
+QPushButton:default {
+    background                  : #547778;
+}
+
+QPushButton:pressed {
+    background                  : #4e4e4e;
+}
+
+QPushButton:disabled {
+    color                       : #3b3b3b;
+    background                  : #4e4e4e;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- List Widget customization
+*/
+
+QListWidget, QListView {
+    background                  : #40474d;
+    color                       : white;
+    border                      : none;
+    outline                     : 0px;
+    border-radius               : 4px;
+}
+
+QListWidget::item, QListView::item {
+    margin                      : 0px;
+    background                  : transparent;
+}
+
+QListWidget::item:selected, QListView::item:selected {
+    color                       : lightgray;
+    background                  : #4a556d;
+}
+
+/*
+------------------------------------------------------------------------------------------------------------------------
+ -- ToolBox customization
+*/
+
+QToolBox {
+    background                  : transparent;
+    border                      : none;
+}
+
+QToolBox::tab {
+    background                  : transparent;
+    color                       : gray;
+    border                      : none;
+    margin                      : 0px;
+    height                      : 24px;
+}
+
+QToolBox::tab:selected {
+    background                  : #4a556d;
+    color                       : white;
+}
+
+QToolBox::tab:hover:!selected {
+    color                       : #efefef;
+}
+
+QToolBox > QScrollArea > QWidget > QWidget {
+    padding                     : 0px;
+    margin                      : 0px;
+}

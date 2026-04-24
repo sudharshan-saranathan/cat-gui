@@ -116,7 +116,7 @@ class NodeConfigWidget(QtWidgets.QDialog):
         self._info = self._init_dock()
         self._stacked_widget = QtWidgets.QStackedWidget(self)
         self._default_tab = QtWidgets.QLabel(
-            "Click + on the top-right corner to define a new technology.",
+            "Add a new technology to begin configuring this node.",
             self,
             alignment=QtCore.Qt.AlignmentFlag.AlignCenter,
         )
