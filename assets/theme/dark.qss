@@ -555,7 +555,7 @@ QComboBox QAbstractItemView::item {
 
 QInputDialog {
     color                       : white;
-    background                  : #363e41;
+    background                  : #40474d;
 }
 
 QInputDialog QLabel {
@@ -565,7 +565,7 @@ QInputDialog QLabel {
 }
 
 QInputDialog QLineEdit {
-    background                  : #40474d;
+    background                  : #363e41;
     color                       : white;
     border-radius               : 4px;
 }

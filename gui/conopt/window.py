@@ -206,7 +206,7 @@ class ConOptWindow(QtWidgets.QFrame):
             name, ok = QtWidgets.QInputDialog.getText(
                 self,
                 "Scenario Name",
-                "Enter a friendly name for this optimization run:",
+                "Enter a label for this optimization:",
             )
             if not ok or not name.strip():
                 return
