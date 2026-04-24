@@ -16,6 +16,69 @@ from gui.maps.markers import Marker
 logger = logging.getLogger(__name__)
 
 
+class AddInstanceDialog(QtWidgets.QDialog):
+    """Collect metadata for a new instance created from a map click."""
+
+    def __init__(
+        self,
+        lat: float,
+        lon: float,
+        state_name: str = "",
+        parent: QtWidgets.QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Add Instance")
+
+        form = QtWidgets.QFormLayout(self)
+
+        self._name = QtWidgets.QLineEdit(self)
+        self._plant_name = QtWidgets.QLineEdit(self)
+        self._state = QtWidgets.QLineEdit(state_name, self)
+        self._capacity = QtWidgets.QDoubleSpinBox(self)
+        self._capacity.setRange(0.0, 1_000_000.0)
+        self._capacity.setDecimals(2)
+        self._capacity.setSuffix(" MTPA")
+        self._pathway = QtWidgets.QLineEdit(self)
+        self._ccus = QtWidgets.QCheckBox("CCUS enabled", self)
+        self._color = QtWidgets.QLineEdit("#FF4444", self)
+        self._lat = QtWidgets.QLineEdit(f"{lat:.6f}", self)
+        self._lon = QtWidgets.QLineEdit(f"{lon:.6f}", self)
+        self._lat.setReadOnly(True)
+        self._lon.setReadOnly(True)
+
+        form.addRow("Instance ID:", self._name)
+        form.addRow("Plant name:", self._plant_name)
+        form.addRow("State:", self._state)
+        form.addRow("Capacity:", self._capacity)
+        form.addRow("Pathway:", self._pathway)
+        form.addRow("", self._ccus)
+        form.addRow("Color:", self._color)
+        form.addRow("Latitude:", self._lat)
+        form.addRow("Longitude:", self._lon)
+
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok
+            | QtWidgets.QDialogButtonBox.StandardButton.Cancel,
+            parent=self,
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form.addRow(buttons)
+
+    def payload(self) -> dict:
+        return {
+            "name": self._name.text().strip(),
+            "plant_name": self._plant_name.text().strip(),
+            "state": self._state.text().strip(),
+            "capacity_mtpa": float(self._capacity.value()),
+            "pathway": self._pathway.text().strip(),
+            "ccus_enabled": self._ccus.isChecked(),
+            "color": self._color.text().strip() or "#FF4444",
+            "lat": float(self._lat.text()),
+            "lon": float(self._lon.text()),
+        }
+
+
 class MapsScene(QtWidgets.QGraphicsScene):
     """
     Renders the India state map from a static Qt resource and overlays
@@ -37,6 +100,8 @@ class MapsScene(QtWidgets.QGraphicsScene):
         self._miny: float = 0.0
         self._maxx: float = 1.0
         self._maxy: float = 1.0
+        self._context_scene_pos = QtCore.QPointF()
+        self._context_state_name = ""
 
         # Marker overlay layer (sits on top of state polygons)
         self._overlay = Marker()
@@ -57,10 +122,18 @@ class MapsScene(QtWidgets.QGraphicsScene):
 
     def _init_menu(self) -> None:
         self._menu = QtWidgets.QMenu()
+        add_action = self._menu.addAction("Add Instance")
+        add_action.triggered.connect(self._on_add_instance)
         load_action = self._menu.addAction("Load Plants Data")
         load_action.triggered.connect(self._on_load_plants)
 
     def contextMenuEvent(self, event: QtWidgets.QGraphicsSceneContextMenuEvent) -> None:
+        self._context_scene_pos = event.scenePos()
+        self._context_state_name = ""
+        for item in self.items(event.scenePos()):
+            if isinstance(item, Borders):
+                self._context_state_name = item.objectName()
+                break
         self._menu.exec(event.screenPos())
 
     def _on_load_plants(self) -> None:
@@ -104,6 +177,52 @@ class MapsScene(QtWidgets.QGraphicsScene):
                 logger.warning(f"Failed to load plants: {data.get('info')}")
         except Exception as e:
             logger.error(f"Error loading plants: {e}")
+
+    def _on_add_instance(self) -> None:
+        """Create a new project instance at the clicked map position."""
+        if not self._api or not self._api.user_id or not getattr(self._api, "project_uid", None):
+            QtWidgets.QMessageBox.warning(
+                None,
+                "Add Instance",
+                "Open or create a project before adding instances.",
+            )
+            return
+
+        lon, lat = self.scene_to_geo(self._context_scene_pos)
+        dialog = AddInstanceDialog(
+            lat=lat,
+            lon=lon,
+            state_name=self._context_state_name,
+        )
+        if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+
+        payload = dialog.payload()
+        if not payload["name"]:
+            QtWidgets.QMessageBox.warning(
+                None,
+                "Add Instance",
+                "Instance ID cannot be empty.",
+            )
+            return
+
+        response = self._api.create_instance(self._api.project_uid, payload)
+        if not response or response.get("status") not in ("OK", 200):
+            detail = (
+                response.get("detail")
+                or response.get("info")
+                or response.get("contents")
+                or "Unknown error"
+            ) if response else "No response"
+            QtWidgets.QMessageBox.warning(
+                None,
+                "Add Instance",
+                f"Failed to create instance:\n{detail}",
+            )
+            return
+
+        self._fetch_and_populate_markers()
+        MapsRelay.instance().sig_focus_template.emit(response.get("instance", payload["name"]))
 
     def _fetch_and_populate_markers(self) -> None:
         """Fetch templates from /maps/templates and populate markers."""

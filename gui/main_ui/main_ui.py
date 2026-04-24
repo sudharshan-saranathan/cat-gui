@@ -69,9 +69,19 @@ class MainGui(FramelessWindow):
                     self._toggle_docks,
                 ),
                 (
+                    qta.icon("mdi.folder-plus", color="#ffcb77"),
+                    "New",
+                    self._create_project_dialog,
+                ),
+                (
                     qta.icon("ph.folder-fill", color="#ffcb77"),
                     "Open",
                     self._open_project_dialog,
+                ),
+                (
+                    qta.icon("mdi.upload", color="#6ec6ca"),
+                    "Push Blueprint",
+                    self._push_blueprint,
                 ),
                 (qta.icon("mdi.function", color="cyan"), "Optimize", self._on_optimize),
                 (qta.icon("mdi.chart-box", color="#fe6d73"), "Results", self._on_results),
@@ -90,17 +100,29 @@ class MainGui(FramelessWindow):
         file_menu = menubar.addMenu("&File")
         self._add_menu_action(
             file_menu,
+            "&New Project...",
+            self._create_project_dialog,
+            QtGui.QKeySequence.StandardKey.New,
+        )
+        self._add_menu_action(
+            file_menu,
             "&Open Project...",
             self._open_project_dialog,
             QtGui.QKeySequence.StandardKey.Open,
         )
         self._add_menu_action(
             file_menu,
+            "Push &Blueprint",
+            self._push_blueprint,
+            QtGui.QKeySequence("Ctrl+Shift+S"),
+        )
+        file_menu.addSeparator()
+        self._add_menu_action(
+            file_menu,
             "&Save Graph As...",
             self._save,
             QtGui.QKeySequence.StandardKey.Save,
         )
-        file_menu.addSeparator()
         self._add_menu_action(
             file_menu,
             "&New Template Tab",
@@ -194,7 +216,12 @@ class MainGui(FramelessWindow):
         """
 
         # 1. Create the tab widget with template mode enabled
-        self._tabs = TabWidget(self, template_mode=True)
+        self._tabs = TabWidget(
+            self,
+            template_mode=True,
+            new_editor_handler=self._open_blueprint_editor,
+            push_blueprint_handler=self._push_blueprint,
+        )
         self.setCentralWidget(self._tabs)
 
         # 2. Add the India map as the first tab
@@ -263,9 +290,8 @@ class MainGui(FramelessWindow):
 
     @QtCore.Slot()
     def _create_template_tab(self) -> None:
-        """Create a new template tab using the tab widget's template flow."""
-
-        self._tabs.create_tab()
+        """Open a new blueprint editor tab."""
+        self._open_blueprint_editor()
 
     @QtCore.Slot()
     def _close_current_tab(self) -> None:
@@ -420,6 +446,116 @@ class MainGui(FramelessWindow):
             QtWidgets.QMessageBox.warning(self, "Save Failed", f"Error: {e}")
 
     @QtCore.Slot()
+    def _create_project_dialog(self) -> None:
+        """Create a blank server-side project, then open it."""
+
+        if not self.api_client or not self.api_client.user_id:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "New Project",
+                "No API client is available for creating a project.",
+            )
+            return
+
+        project_uid, ok = QtWidgets.QInputDialog.getText(
+            self,
+            "New Project",
+            "Project name:",
+        )
+        if not ok:
+            return
+
+        project_uid = project_uid.strip()
+        if not project_uid:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "New Project",
+                "Project name cannot be empty.",
+            )
+            return
+
+        response = self.api_client.create_project(project_uid)
+        if not response or response.get("status") not in ("OK", 200):
+            detail = (
+                response.get("detail")
+                or response.get("info")
+                or response.get("contents")
+                or "Unknown error"
+            ) if response else "No response"
+            QtWidgets.QMessageBox.warning(
+                self,
+                "New Project",
+                f"Failed to create project:\n{detail}",
+            )
+            return
+
+        self._open_project_by_uid(response.get("project", project_uid))
+
+    def _open_blueprint_editor(self) -> None:
+        """Open a viewer tab bound to the live __blueprint__ template."""
+        if not self.api_client or not self.api_client.project_uid:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Blueprint Editor",
+                "Open or create a project before opening the blueprint editor.",
+            )
+            return
+
+        import qtawesome as qta
+        from gui.widgets.viewer import Viewer
+
+        existing = sum(
+            1 for index in range(self._tabs.count())
+            if self._tabs.tabText(index).startswith("Blueprint")
+        )
+        label = "Blueprint" if existing == 0 else f"Blueprint {existing + 1}"
+        viewer = Viewer(
+            parent=self._tabs,
+            graph_uuid="__blueprint__",
+            dragMode=QtWidgets.QGraphicsView.DragMode.NoDrag,
+            viewportUpdateMode=QtWidgets.QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate,
+            renderHints=QtGui.QPainter.RenderHint.Antialiasing,
+            backgroundBrush=QtGui.QBrush(QtGui.QColor(0xEFEFEF)),
+            sceneRect=QtCore.QRectF(0, 0, 2000, 2000),
+        )
+        self._tabs.create_tab(
+            widget=viewer,
+            icon=qta.icon("mdi.vector-polyline", color="#6ec6ca"),
+            label=label,
+        )
+
+    def _push_blueprint(self) -> None:
+        """Persist the live blueprint back into the active project HDF5."""
+        if not self.api_client or not self.api_client.project_uid:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Push Blueprint",
+                "Open or create a project before saving a blueprint.",
+            )
+            return
+
+        response = self.api_client.save_blueprint(self.api_client.project_uid)
+        if not response or response.get("status") not in ("OK", 200):
+            detail = (
+                response.get("detail")
+                or response.get("info")
+                or response.get("contents")
+                or "Unknown error"
+            ) if response else "No response"
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Push Blueprint",
+                f"Failed to save blueprint:\n{detail}",
+            )
+            return
+
+        QtWidgets.QMessageBox.information(
+            self,
+            "Push Blueprint",
+            "Blueprint saved to project.",
+        )
+
+    @QtCore.Slot()
     def _open_project_dialog(self) -> None:
         """Prompt for a server-side project, open it, and load its blueprint."""
 
@@ -474,6 +610,20 @@ class MainGui(FramelessWindow):
             if not ok or not project_uid:
                 return
 
+            self._open_project_by_uid(project_uid)
+        except Exception as e:
+            logger.error(f"Failed to open project: {e}")
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Open Failed",
+                f"Failed to open project:\n{e}",
+            )
+
+    def _open_project_by_uid(self, project_uid: str) -> bool:
+        """Open an existing project and refresh the UI state."""
+        try:
+            from gui.maps import MapsRelay
+
             response = self.api_client.open_project(project_uid)
             if not response or response.get("status") not in ("OK", 200):
                 detail = (
@@ -487,18 +637,20 @@ class MainGui(FramelessWindow):
                     "Open Failed",
                     f"Failed to load project:\n{detail}",
                 )
-                return
+                return False
 
             self._reset_project_state()
             self._load(project_uid)
             MapsRelay.instance().sig_plants_loaded.emit()
+            return True
         except Exception as e:
-            logger.error(f"Failed to open project: {e}")
+            logger.error(f"Failed to open project {project_uid}: {e}")
             QtWidgets.QMessageBox.warning(
                 self,
                 "Open Failed",
                 f"Failed to open project:\n{e}",
             )
+            return False
 
     def _load(self, project: str) -> None:
         """

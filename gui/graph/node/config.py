@@ -58,12 +58,14 @@ class NodeConfigWidget(QtWidgets.QDialog):
             consumed: The node's default consumed streams.
             produced: The node's default produced streams.
             parameters: The node's default parameters.
+            decisions: The node's default decision variables.
             equations: The node's default equations.
         """
 
         consumed: dict[str, typing.Any]
         produced: dict[str, typing.Any]
         parameters: dict[str, typing.Any]
+        decisions: dict[str, typing.Any]
         equations: dict[str, typing.Any]
 
     def __init__(self, parent=None):
@@ -102,6 +104,7 @@ class NodeConfigWidget(QtWidgets.QDialog):
             consumed={},
             produced={},
             parameters={},
+            decisions={},
             equations={},
         )
 
@@ -248,6 +251,18 @@ class NodeConfigWidget(QtWidgets.QDialog):
 
         logger.info("Confirming node config...")
 
+        from gui.compat import Translator
+        from gui.compat import SysClient as ClimactClient
+        from gui.compat import DatClient
+
+        translator = Translator.instance()
+        client = ClimactClient.instance()
+        dat_client = DatClient.instance()
+        node_path = self._node_path or translator._paths.get(id(self._node_item))
+        if not node_path:
+            logger.warning("Could not resolve node path for node config commit")
+            return
+
         # Collect data from all tech tabs (excluding default tab)
         all_techs = {}
 
@@ -283,58 +298,86 @@ class NodeConfigWidget(QtWidgets.QDialog):
                 for key, val in par_data.items():
                     streams[f"#{key}"] = val
 
+            # Collect decision variables (?decision)
+            if hasattr(widget, "dec_tree"):
+                dec_data = widget.dec_tree.to_dict() if hasattr(widget.dec_tree, "to_dict") else {}
+                for key, val in dec_data.items():
+                    streams[f"?{key}"] = val
+
             # Collect equations (=eq)
-            if hasattr(widget, "eqn_text"):
-                eqn_content = widget.eqn_text.toPlainText()
-                if eqn_content.strip():
-                    streams["=equations"] = eqn_content
+            if hasattr(widget, "eqn_tree"):
+                eqn_data = widget.eqn_tree.to_dict() if hasattr(widget.eqn_tree, "to_dict") else {}
+                streams.update(eqn_data)
 
             all_techs[tech_name] = streams
 
-        # Commit all techs to server via Translator
         try:
-            from gui.compat import Translator
-            from gui.compat import SysClient as ClimactClient
-            translator = Translator.instance()
-            client = ClimactClient.instance()
-
-            from gui.compat import DatClient
-            dat_client = DatClient.instance()
-
             for tech_name, streams in all_techs.items():
                 logger.info(f"Committing tech '{tech_name}' with {len(streams)} streams")
 
-                node_path = translator._paths.get(id(self._node_item))
                 tech_path = f"{node_path}/{tech_name}"
+                tech_meta = {}
+                param_entries = {}
+
+                for key, value in streams.items():
+                    if key.startswith("#") and isinstance(value, dict):
+                        param_type = value.get("type", "")
+                        if param_type:
+                            tech_meta[key] = param_type
+                            param_entries[key] = value
+                    elif isinstance(value, str):
+                        tech_meta[key] = value
 
                 check_resp = client.send_command({"verb": "info", "path": tech_path})
                 tech_exists = check_resp and check_resp.get("status") in ("OK", 200)
 
+                sync_resp = None
                 if tech_exists:
-                    stream_meta = {k: v for k, v in streams.items() if isinstance(v, str)}
-                    resp = client.send_command({"verb": "update", "path": tech_path, "meta": stream_meta})
-                    if resp and resp.get("status") in ("OK", 200):
-                        logger.info(f"✓ Updated tech: {tech_path}")
-                    else:
-                        logger.warning(f"✗ Failed to update tech {tech_path}: {resp.get('info') if resp else 'no response'}")
+                    export_resp = client.send_command({"verb": "export", "path": tech_path})
+                    existing_meta = {}
+                    if export_resp and export_resp.get("status") in ("OK", 200):
+                        existing_meta = export_resp.get("serialized", {}) or {}
+
+                    removals = {
+                        key: None
+                        for key in existing_meta
+                        if key.startswith(("+", "-", "#", "?", "=")) and key not in tech_meta
+                    }
+                    sync_resp = client.send_command(
+                        {"verb": "update", "path": tech_path, "meta": {**tech_meta, **removals}}
+                    )
                 else:
-                    result = translator.commit_tech(self._node_item, tech_name, streams)
-                    logger.info(f"Commit result: {result}")
+                    create_resp = client.send_command({"verb": "create", "path": tech_path, "meta": {}})
+                    if not create_resp or create_resp.get("status") not in ("OK", 200):
+                        logger.warning(
+                            f"✗ Failed to create tech {tech_path}: "
+                            f"{create_resp.get('info') if create_resp else 'no response'}"
+                        )
+                        continue
+                    sync_resp = client.send_command(
+                        {"verb": "update", "path": tech_path, "meta": tech_meta}
+                    )
+
+                if sync_resp and sync_resp.get("status") in ("OK", 200):
+                    logger.info(f"✓ Synced tech: {tech_path}")
+                else:
+                    logger.warning(
+                        f"✗ Failed to sync tech {tech_path}: "
+                        f"{sync_resp.get('info') if sync_resp else 'no response'}"
+                    )
+                    continue
 
                 # Write parameter values to datastore for all #param entries
-                for stream_key, stream_val in streams.items():
-                    if not stream_key.startswith("#"):
-                        continue
-                    if not isinstance(stream_val, dict):
-                        continue
-                    value = stream_val.get("value", "")
-                    units = stream_val.get("units", "")
-                    if not value:
+                for stream_key, stream_val in param_entries.items():
+                    value = str(stream_val.get("value", "")).strip()
+                    f_t = str(stream_val.get("f_t", value)).strip()
+                    units = str(stream_val.get("units", "")).strip()
+                    if not value and not f_t:
                         continue
                     ds_path = f"{node_path}/{tech_name}/#{stream_key[1:]}"
-                    ok = dat_client.write(ds_path, str(value), units=units)
+                    ok = dat_client.upsert(ds_path, value or f_t, units=units, f_t=f_t or value)
                     if ok:
-                        logger.info(f"✓ Wrote param {ds_path} = {value} {units}")
+                        logger.info(f"✓ Wrote param {ds_path}")
                     else:
                         logger.warning(f"✗ Failed to write param {ds_path}")
 
@@ -343,28 +386,30 @@ class NodeConfigWidget(QtWidgets.QDialog):
             logger.error(f"Failed to commit tech: {e}", exc_info=True)
 
     def _create_tab_widget(self) -> QtWidgets.QTabWidget:
-        """Create a tab widget for a single technology with In/Out/Params/Equations tabs."""
-        from gui.graph.node.tree import StreamTree, ParamsTree
+        """Create a tab widget for a single technology with structured editors."""
+        from gui.graph.node.tree import StreamTree, ParamsTree, DecisionTree, EquationTree
         from qtawesome import icon as qta_icon
 
         inp = StreamTree()
         out = StreamTree()
         par = ParamsTree()
-        eqn = QtWidgets.QTextEdit()
-        eqn.setReadOnly(True)  # Equations are display-only
+        dec = DecisionTree()
+        eqn = EquationTree()
 
         tabs = TabWidget(self)
         tabs.setTabsClosable(False)  # Disable closable tabs in NodeConfig
         tabs.addTab(inp, qta_icon("mdi.arrow-down-bold", color="gray"), "In")
         tabs.addTab(out, qta_icon("mdi.arrow-up-bold", color="gray"), "Out")
         tabs.addTab(par, qta_icon("mdi.alpha", color="gray"), "Params")
+        tabs.addTab(dec, qta_icon("mdi.help-rhombus-outline", color="gray"), "Decision Vars")
         tabs.addTab(eqn, qta_icon("mdi.equal", color="gray"), "Equations")
 
         # Store references for data collection
         tabs.inp_tree = inp
         tabs.out_tree = out
         tabs.par_tree = par
-        tabs.eqn_text = eqn
+        tabs.dec_tree = dec
+        tabs.eqn_tree = eqn
 
         return tabs
 
@@ -483,7 +528,7 @@ class NodeConfigWidget(QtWidgets.QDialog):
                     # Parameter — fetch value and units from the datastore
                     key = stream_key[1:]
                     if hasattr(tab_widget.par_tree, "add_item"):
-                        value, units = "", ""
+                        value, units, f_t = "", "", ""
                         node_path = getattr(self, "_node_path", None)
                         if node_path:
                             from gui.compat import DatClient
@@ -491,17 +536,15 @@ class NodeConfigWidget(QtWidgets.QDialog):
                             entry = DatClient.instance().read(ds_path)
                             value = entry.get("initial", "")
                             units = entry.get("units", "")
-                        tab_widget.par_tree.add_item(key, type_name, value, units)
+                            f_t = entry.get("f_t", entry.get("f(t)", ""))
+                        tab_widget.par_tree.add_item(key, type_name, value, units, f_t)
+                elif stream_key.startswith("?"):
+                    key = stream_key[1:]
+                    if hasattr(tab_widget, "dec_tree"):
+                        tab_widget.dec_tree.add_item(key, type_name)
                 elif stream_key.startswith("="):
-                    # Equation - append to existing content
-                    if hasattr(tab_widget, "eqn_text"):
-                        current_text = tab_widget.eqn_text.toPlainText()
-                        eq_name = stream_key[1:]
-                        eq_line = f"{eq_name}: {type_name}"
-                        if current_text:
-                            tab_widget.eqn_text.setPlainText(current_text + "\n" + eq_line)
-                        else:
-                            tab_widget.eqn_text.setPlainText(eq_line)
+                    if hasattr(tab_widget, "eqn_tree"):
+                        tab_widget.eqn_tree.add_item(stream_key[1:], type_name)
 
         # Set active technology (server returns "active" singular)
         self._type_combo.blockSignals(False)  # Unblock signals before setting active tech

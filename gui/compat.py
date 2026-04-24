@@ -235,6 +235,30 @@ class DatClient:
             logging.getLogger(__name__).warning(f"DatClient.write({path!r}) failed: {e}")
         return False
 
+    def update(self, path: str, value: str, units: str = "", f_t: str = "") -> bool:
+        """Update a parameter in the datastore. Returns True on success."""
+        api = SysClient.instance()._api
+        try:
+            uid = api.user_id
+            payload = {"initial": value, "f_t": f_t or value, "units": units, "binary": 0}
+            resp = api.session.post(
+                f"{api.base_URL}/data/update",
+                params={"path": path},
+                json=payload,
+                headers={"X-Client-ID": uid} if uid else {},
+            )
+            return resp.status_code == 200
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"DatClient.update({path!r}) failed: {e}")
+        return False
+
+    def upsert(self, path: str, value: str, units: str = "", f_t: str = "") -> bool:
+        """Update a parameter if it exists, otherwise create it."""
+        existing = self.read(path)
+        if existing:
+            return self.update(path, value, units=units, f_t=f_t)
+        return self.write(path, value, units=units, f_t=f_t)
+
     @classmethod
     def instance(cls) -> "DatClient":
         # Lightweight — no state, so a fresh instance is fine.

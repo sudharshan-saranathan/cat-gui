@@ -18,6 +18,31 @@ import typing
 from gui.widgets.toolbar import ToolBar
 from gui.compat import Composite, Fuel, Fluid, Material, Electricity, MassCurrent, Energy, Cost
 
+_PARAM_UNIT_MAP = {
+    "SpecificEnergy": ["kWh/ton", "kJ/kg", "MJ/ton"],
+    "Energy": ["kWh", "MJ", "GJ"],
+    "Quantity": ["", "dimensionless"],
+    "SpecificCost": ["$/ton", "$/kg", "$/m3"],
+    "Currency": ["$", "EUR", "GBP"],
+    "ElectricityTariff": ["$/kWh", "$/MWh"],
+    "Density": ["kg/m3", "ton/m3", "g/cm3"],
+    "Mass": ["ton", "kg", "g"],
+    "EnergyCost": ["$/MWh", "$/kWh"],
+    "MassCurrent": ["ton/hr", "kg/hr"],
+}
+
+
+def _parameter_classes() -> list[str]:
+    from gui.compat import CLASS_REGISTRY
+
+    return sorted(
+        [
+            name
+            for name, cls in CLASS_REGISTRY.items()
+            if cls and name not in ("Composite", "Material", "Electricity", "Fluid", "Fuel")
+        ]
+    )
+
 
 class StreamTree(QtWidgets.QTreeWidget):
 
@@ -66,6 +91,7 @@ class StreamTree(QtWidgets.QTreeWidget):
             toolbar = ToolBar(
                 self,
                 trailing=True,
+                iconSize=QtCore.QSize(16, 16),
             )
 
             add_stream = toolbar.addAction(
@@ -223,7 +249,7 @@ class StreamTree(QtWidgets.QTreeWidget):
 
                 # Collect direct children of root (which are the actual stream items)
                 if stream_name:
-                    # Extract just the stream name (remove the counter suffix like "Material 1" -> "material")
+                    # Extract just the stream name (remove the counter-suffix like "Material 1" -> "material")
                     base_name = stream_name.split()[0].lower() if len(stream_name.split()) > 1 else stream_name.lower()
                     result[base_name] = stream_type_name
 
@@ -236,13 +262,13 @@ class StreamTree(QtWidgets.QTreeWidget):
 
 
 class ParamsTree(QtWidgets.QTreeWidget):
-    """Simplified tree widget for parameters (not streams)."""
+    """Structured editor for # parameters."""
 
     def __init__(self, parent=None):
-        super().__init__(parent, columnCount=4)
+        super().__init__(parent, columnCount=5)
         super().setEditTriggers(QtWidgets.QTreeWidget.EditTrigger.DoubleClicked)
 
-        self.setHeaderLabels(["Parameter", "Type", "Value", "Unit"])
+        self.setHeaderLabels(["Parameter", "Type", "Initial", "f(t)", "Unit"])
         self.setStyleSheet("QTreeWidget::item { height: 28px; padding: 2px;}")
         self.setSelectionMode(QtWidgets.QTreeWidget.SelectionMode.SingleSelection)
 
@@ -251,9 +277,9 @@ class ParamsTree(QtWidgets.QTreeWidget):
         self.setColumnWidth(0, 200)
         self.setColumnWidth(1, 150)
         self.setColumnWidth(2, 150)
-        self.setColumnWidth(3, 150)
+        self.setColumnWidth(3, 260)
+        self.setColumnWidth(4, 150)
 
-        # Add param button
         self._root = QtWidgets.QTreeWidgetItem(self)
         self._root.setText(0, "Parameters")
         self._root.setIcon(0, qta.icon("mdi.sigma", color="gray"))
@@ -263,18 +289,11 @@ class ParamsTree(QtWidgets.QTreeWidget):
             qta.icon("mdi.plus", color="gray", color_active="white"), "Add Param"
         )
         add_param.triggered.connect(self._on_add_param)
-        self.setItemWidget(self._root, 2, toolbar)
+        self.setItemWidget(self._root, 4, toolbar)
 
     @QtCore.Slot()
     def _on_add_param(self) -> None:
-        """Show dialog to add a new parameter."""
-        from gui.compat import CLASS_REGISTRY
-
-        param_classes = sorted([
-            name for name, cls in CLASS_REGISTRY.items()
-            if cls and name not in ('Composite', 'Material', 'Electricity', 'Fluid', 'Fuel')
-        ])
-
+        param_classes = _parameter_classes()
         if not param_classes:
             return
 
@@ -292,85 +311,222 @@ class ParamsTree(QtWidgets.QTreeWidget):
 
         self.add_item(param_name.strip(), param_type)
 
-    def add_item(self, name: str, param_type: str, value: str = "", unit: str = "") -> None:
-        """Add a parameter to the tree with optional value and unit."""
+    def add_item(
+        self,
+        name: str,
+        param_type: str,
+        value: str = "",
+        units: str = "",
+        f_t: str = "",
+    ) -> None:
         item = QtWidgets.QTreeWidgetItem(self._root)
         item.setText(0, name)
         item.setText(1, param_type)
         item.setFlags(item.flags() | QtCore.Qt.ItemFlag.ItemIsEditable)
 
-        # Add value input field
-        value_input = QtWidgets.QLineEdit(self)
-        value_input.setText(value)
-        value_input.setPlaceholderText("e.g., 50")
-        self.setItemWidget(item, 2, value_input)
+        initial_input = QtWidgets.QLineEdit(self)
+        initial_input.setText(value)
+        initial_input.setPlaceholderText("e.g., 50")
+        self.setItemWidget(item, 2, initial_input)
 
-        # Add unit combobox with common units for this dimension
+        f_t_input = QtWidgets.QLineEdit(self)
+        f_t_input.setText(f_t or value)
+        f_t_input.setPlaceholderText("e.g., 50 + (t-2025)*2")
+        self.setItemWidget(item, 3, f_t_input)
+
         unit_combo = QtWidgets.QComboBox(self)
-        unit_combo.setEditable(True)  # Allow users to type custom units
-
-        # Map param type to common units for quick selection
-        unit_map = {
-            "SpecificEnergy": ["kWh/ton", "kJ/kg", "MJ/ton"],
-            "Energy": ["kWh", "MJ", "GJ"],
-            "Quantity": ["", "dimensionless"],
-            "SpecificCost": ["$/ton", "$/kg", "$/m3"],
-            "Currency": ["$", "€", "£"],
-            "ElectricityTariff": ["$/kWh", "$/MWh"],
-            "Density": ["kg/m3", "ton/m3", "g/cm3"],
-            "Mass": ["ton", "kg", "g"],
-            "EnergyCost": ["$/MWh", "$/kWh"],
-            "MassCurrent": ["ton/hr", "kg/hr"],
-        }
-
-        common_units = unit_map.get(param_type, [])
-        unit_combo.addItems(common_units)
-
-        if unit:
-            idx = unit_combo.findText(unit)
+        unit_combo.setEditable(True)
+        unit_combo.addItems(_PARAM_UNIT_MAP.get(param_type, []))
+        if units:
+            idx = unit_combo.findText(units)
             if idx >= 0:
                 unit_combo.setCurrentIndex(idx)
             else:
-                unit_combo.setCurrentText(unit)
-
-        self.setItemWidget(item, 3, unit_combo)
+                unit_combo.setCurrentText(units)
+        self.setItemWidget(item, 4, unit_combo)
         self._root.setExpanded(True)
 
     def to_dict(self) -> dict[str, typing.Any]:
-        """Serialize params to dict: {param_name: {"type": type_name, "value": value, "unit": unit}}."""
         result = {}
         for idx in range(self._root.childCount()):
             child = self._root.child(idx)
-            if child:
-                param_name = child.text(0).strip()
-                param_type = child.text(1).strip()
+            if not child:
+                continue
 
-                # Get value from column 2 (QLineEdit)
-                value_widget = self.itemWidget(child, 2)
-                value = ""
-                if isinstance(value_widget, QtWidgets.QLineEdit):
-                    value = value_widget.text().strip()
+            name = child.text(0).strip()
+            param_type = child.text(1).strip()
+            if not name or not param_type:
+                continue
 
-                # Get unit from column 3 (QComboBox)
-                unit_widget = self.itemWidget(child, 3)
-                unit = ""
-                if isinstance(unit_widget, QtWidgets.QComboBox):
-                    unit = unit_widget.currentText().strip()
+            initial_widget = self.itemWidget(child, 2)
+            f_t_widget = self.itemWidget(child, 3)
+            unit_widget = self.itemWidget(child, 4)
 
-                if param_name and param_type:
-                    result[param_name] = {"type": param_type, "value": value, "unit": unit}
+            initial = (
+                initial_widget.text().strip()
+                if isinstance(initial_widget, QtWidgets.QLineEdit)
+                else ""
+            )
+            f_t = (
+                f_t_widget.text().strip()
+                if isinstance(f_t_widget, QtWidgets.QLineEdit)
+                else ""
+            )
+            units = (
+                unit_widget.currentText().strip()
+                if isinstance(unit_widget, QtWidgets.QComboBox)
+                else ""
+            )
+
+            result[name] = {
+                "type": param_type,
+                "value": initial,
+                "f_t": f_t or initial,
+                "units": units,
+            }
         return result
 
     def from_dict(self, data: dict[str, typing.Any]) -> None:
-        """Load params from dict."""
         for name, info in data.items():
             if isinstance(info, dict):
-                param_type = info.get("type", "")
-                value = info.get("value", "")
-                unit = info.get("unit", "")
+                self.add_item(
+                    name,
+                    info.get("type", ""),
+                    info.get("value", info.get("initial", "")),
+                    info.get("units", info.get("unit", "")),
+                    info.get("f_t", info.get("f(t)", "")),
+                )
             else:
-                # Fallback for old format (just type string)
-                param_type = str(info)
-                value = ""
-                unit = ""
-            self.add_item(name, param_type, value, unit)
+                self.add_item(name, str(info))
+
+
+class DecisionTree(QtWidgets.QTreeWidget):
+    """Structured editor for ? decision variables."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent, columnCount=2)
+        super().setEditTriggers(QtWidgets.QTreeWidget.EditTrigger.DoubleClicked)
+
+        self.setHeaderLabels(["Decision Variable", "Type"])
+        self.setStyleSheet("QTreeWidget::item { height: 28px; padding: 2px;}")
+        self.setSelectionMode(QtWidgets.QTreeWidget.SelectionMode.SingleSelection)
+
+        header = self.header()
+        header.setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.setColumnWidth(0, 240)
+        self.setColumnWidth(1, 180)
+
+        self._root = QtWidgets.QTreeWidgetItem(self)
+        self._root.setText(0, "Decision Variables")
+        self._root.setIcon(0, qta.icon("mdi.help-rhombus", color="gray"))
+
+        toolbar = ToolBar(self, trailing=True)
+        add_decision = toolbar.addAction(
+            qta.icon("mdi.plus", color="gray", color_active="white"), "Add Decision"
+        )
+        add_decision.triggered.connect(self._on_add_decision)
+        self.setItemWidget(self._root, 1, toolbar)
+
+    @QtCore.Slot()
+    def _on_add_decision(self) -> None:
+        decision_classes = _parameter_classes()
+        if not decision_classes:
+            return
+
+        decision_name, ok1 = QtWidgets.QInputDialog.getText(
+            self, "New Decision Variable", "Decision variable name:"
+        )
+        if not ok1 or not decision_name.strip():
+            return
+
+        decision_type, ok2 = QtWidgets.QInputDialog.getItem(
+            self, "Decision Variable Type", "Select type:", decision_classes, 0, False
+        )
+        if not ok2:
+            return
+
+        self.add_item(decision_name.strip(), decision_type)
+
+    def add_item(self, name: str, decision_type: str) -> None:
+        item = QtWidgets.QTreeWidgetItem(self._root)
+        item.setText(0, name)
+        item.setText(1, decision_type)
+        item.setFlags(item.flags() | QtCore.Qt.ItemFlag.ItemIsEditable)
+        self._root.setExpanded(True)
+
+    def to_dict(self) -> dict[str, str]:
+        result: dict[str, str] = {}
+        for idx in range(self._root.childCount()):
+            child = self._root.child(idx)
+            if not child:
+                continue
+            name = child.text(0).strip()
+            decision_type = child.text(1).strip()
+            if name and decision_type:
+                result[name] = decision_type
+        return result
+
+    def from_dict(self, data: dict[str, typing.Any]) -> None:
+        for name, info in data.items():
+            self.add_item(name, str(info))
+
+
+class EquationTree(QtWidgets.QTreeWidget):
+    """Structured editor for = equations."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent, columnCount=2)
+        super().setEditTriggers(QtWidgets.QTreeWidget.EditTrigger.DoubleClicked)
+
+        self.setHeaderLabels(["Equation", "Expression"])
+        self.setStyleSheet("QTreeWidget::item { height: 28px; padding: 2px;}")
+        self.setSelectionMode(QtWidgets.QTreeWidget.SelectionMode.SingleSelection)
+
+        header = self.header()
+        header.setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.setColumnWidth(0, 220)
+        self.setColumnWidth(1, 520)
+
+        self._root = QtWidgets.QTreeWidgetItem(self)
+        self._root.setText(0, "Equations")
+        self._root.setIcon(0, qta.icon("mdi.equal-box", color="gray"))
+
+        toolbar = ToolBar(self, trailing=True)
+        add_equation = toolbar.addAction(
+            qta.icon("mdi.plus", color="gray", color_active="white"), "Add Equation"
+        )
+        add_equation.triggered.connect(self._on_add_equation)
+        self.setItemWidget(self._root, 1, toolbar)
+
+    @QtCore.Slot()
+    def _on_add_equation(self) -> None:
+        equation_name, ok = QtWidgets.QInputDialog.getText(
+            self, "New Equation", "Equation name:"
+        )
+        if not ok or not equation_name.strip():
+            return
+        self.add_item(equation_name.strip(), "")
+
+    def add_item(self, name: str, expression: str) -> None:
+        item = QtWidgets.QTreeWidgetItem(self._root)
+        item.setText(0, name)
+        item.setText(1, expression)
+        item.setFlags(item.flags() | QtCore.Qt.ItemFlag.ItemIsEditable)
+        self._root.setExpanded(True)
+
+    def to_dict(self) -> dict[str, str]:
+        result: dict[str, str] = {}
+        for idx in range(self._root.childCount()):
+            child = self._root.child(idx)
+            if not child:
+                continue
+            name = child.text(0).strip()
+            expression = child.text(1).strip()
+            if name and expression:
+                result[name if name.startswith("=") else f"={name}"] = expression
+        return result
+
+    def from_dict(self, data: dict[str, typing.Any]) -> None:
+        for key, value in data.items():
+            name = key[1:] if key.startswith("=") else key
+            self.add_item(name, str(value))

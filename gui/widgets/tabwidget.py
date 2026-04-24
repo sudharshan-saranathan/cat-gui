@@ -56,6 +56,8 @@ class TabWidget(QtWidgets.QTabWidget):
         self._template_mode = template_mode
         self._logger = logging.getLogger("TabWidget")
         self._kwargs = kwargs
+        self._new_editor_handler = kwargs.get("new_editor_handler")
+        self._push_blueprint_handler = kwargs.get("push_blueprint_handler")
 
         # 2. Initialize defaults and configure base class
         self._init_defaults()
@@ -69,7 +71,7 @@ class TabWidget(QtWidgets.QTabWidget):
         )
 
         # 3. Set up keyboard shortcuts for tab management
-        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+T"), self, self.create_tab)
+        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+T"), self, self._request_new_editor)
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+W"), self, self.remove_tab)
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Left"), self, self._go_to_prev_tab)
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Right"), self, self._go_to_next_tab)
@@ -209,6 +211,13 @@ class TabWidget(QtWidgets.QTabWidget):
         self.addTab(widget, icon or QtGui.QIcon(), label)
         self.setCurrentIndex(count)
 
+    def _request_new_editor(self) -> None:
+        """Open a new editor tab using the configured handler when available."""
+        if callable(self._new_editor_handler):
+            self._new_editor_handler()
+            return
+        self.create_tab()
+
     def remove_tab(self, index: int = None) -> None:
         """
         Delete the tab at the specified index.
@@ -285,9 +294,17 @@ class TabWidget(QtWidgets.QTabWidget):
             (
                 qta_icon("mdi.plus", color="gray", color_active="white"),
                 "New Tab",
-                lambda: self.create_tab(QtWidgets.QWidget()),
+                self._request_new_editor,
             ),
         ]
+        if callable(self._push_blueprint_handler):
+            actions.append(
+                (
+                    qta_icon("mdi.upload", color="gray", color_active="white"),
+                    "Push Blueprint",
+                    self._push_blueprint_handler,
+                )
+            )
 
         toolbar = ToolBar(
             parent=self,

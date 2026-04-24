@@ -97,6 +97,76 @@ class APIClient:
             logger.error(f"Failed to list projects: {e}")
             return None
 
+    def create_project(
+        self, project_uid: str
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
+        """
+        Create a blank project by its UID.
+
+        Args:
+            project_uid: The unique identifier of the project.
+
+        Returns:
+            Dictionary with project data, or None if request failed.
+        """
+        if not self.user_id:
+            logger.error("User not logged in. Call login first.")
+            return None
+
+        try:
+            response = self.session.post(
+                f"{self.base_URL}/projects/",
+                json={"name": project_uid},
+                headers={"X-Client-ID": self.user_id},
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Failed to create project {project_uid}: {e}")
+            return None
+
+    def save_blueprint(
+        self, project_uid: str
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
+        """Persist the live blueprint back into the project HDF5."""
+        if not self.user_id:
+            logger.error("User not logged in. Call login first.")
+            return None
+
+        try:
+            response = self.session.post(
+                f"{self.base_URL}/projects/{project_uid}/blueprint",
+                headers={"X-Client-ID": self.user_id},
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Failed to save blueprint for {project_uid}: {e}")
+            return None
+
+    def create_instance(
+        self, project_uid: str, payload: typing.Dict[str, typing.Any]
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
+        """Create a new instance in the active project."""
+        if not self.user_id:
+            logger.error("User not logged in. Call login first.")
+            return None
+
+        try:
+            response = self.session.post(
+                f"{self.base_URL}/projects/{project_uid}/instances",
+                json=payload,
+                headers={"X-Client-ID": self.user_id},
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Failed to create instance in {project_uid}: {e}")
+            return None
+
     def open_project(
         self, project_uid: str
     ) -> typing.Optional[typing.Dict[str, typing.Any]]:
@@ -123,6 +193,26 @@ class APIClient:
             return response.json()
         except requests.RequestException as e:
             logger.error(f"Failed to open project {project_uid}: {e}")
+            return None
+
+    def delete_project(
+        self, project_uid: str
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
+        """Delete a project by its UID."""
+        if not self.user_id:
+            logger.error("User not logged in. Call login first.")
+            return None
+
+        try:
+            response = self.session.delete(
+                f"{self.base_URL}/projects/{project_uid}",
+                headers={"X-Client-ID": self.user_id},
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Failed to delete project {project_uid}: {e}")
             return None
 
     def close(self):

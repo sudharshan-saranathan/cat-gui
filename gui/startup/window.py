@@ -239,6 +239,11 @@ class StartupWindow(QtWidgets.QDialog):
         )
         back_button.clicked.connect(self._on_back)
 
+        self._new_project_btn = QtWidgets.QPushButton(" New Project")
+        self._new_project_btn.setMaximumWidth(160)
+        self._new_project_btn.setMaximumHeight(32)
+        self._new_project_btn.setStyleSheet(back_button.styleSheet())
+
         try:
             # Use qtawesome for the back arrow icon
             from qtawesome import icon as qta_icon
@@ -248,6 +253,13 @@ class StartupWindow(QtWidgets.QDialog):
                 qta_icon(
                     "mdi.arrow-left",
                     color="gray",
+                    color_active="white",
+                )
+            )
+            self._new_project_btn.setIcon(
+                qta_icon(
+                    "mdi.folder-plus",
+                    color="#ffcb00",
                     color_active="white",
                 )
             )
@@ -261,6 +273,11 @@ class StartupWindow(QtWidgets.QDialog):
         corner_layout.setSpacing(0)
         corner_layout.addWidget(
             back_button,
+            0,
+            QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft,
+        )
+        corner_layout.addWidget(
+            self._new_project_btn,
             0,
             QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft,
         )
@@ -306,6 +323,7 @@ class StartupWindow(QtWidgets.QDialog):
         # Connect login widget signals
         self._login.connect_clicked.connect(self._on_connect)
         self._login.get_exit_button().clicked.connect(self._on_exit)
+        self._new_project_btn.clicked.connect(self._on_new_project)
 
         # Connect file table double-click signal
         self._ftable.sig_row_double_clicked.connect(self._on_open_project)
@@ -323,8 +341,50 @@ class StartupWindow(QtWidgets.QDialog):
         """
         Handle new project creation button click.
 
-        Accepts the dialog and returns to the main application.
+        Create a blank server-side project and open it immediately.
         """
+        if not self._api_client or not self._api_client.user_id:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "New Project",
+                "Connect to the server before creating a project.",
+            )
+            return
+
+        project_uid, ok = QtWidgets.QInputDialog.getText(
+            self,
+            "New Project",
+            "Project name:",
+        )
+        if not ok:
+            return
+
+        project_uid = project_uid.strip()
+        if not project_uid:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "New Project",
+                "Project name cannot be empty.",
+            )
+            return
+
+        response = self._api_client.create_project(project_uid)
+        if not response or response.get("status") not in ("OK", 200):
+            detail = (
+                response.get("detail")
+                or response.get("info")
+                or response.get("contents")
+                or "Unknown error"
+            ) if response else "No response"
+            QtWidgets.QMessageBox.warning(
+                self,
+                "New Project",
+                f"Failed to create project:\n{detail}",
+            )
+            return
+
+        self._refresh_projects()
+        self._current_project_file = response.get("project", project_uid)
         self.accept()
 
     @QtCore.Slot()
@@ -371,7 +431,34 @@ class StartupWindow(QtWidgets.QDialog):
         Args:
             project_path: Path to the project to delete.
         """
-        pass
+        if not self._api_client or not self._api_client.user_id:
+            return
+
+        project_uid = str(project_path).strip()
+        answer = QtWidgets.QMessageBox.question(
+            self,
+            "Delete Project",
+            f"Delete project '{project_uid}'?",
+        )
+        if answer != QtWidgets.QMessageBox.StandardButton.Yes:
+            return
+
+        response = self._api_client.delete_project(project_uid)
+        if not response or response.get("status") not in ("OK", 200):
+            detail = (
+                response.get("detail")
+                or response.get("info")
+                or response.get("contents")
+                or "Unknown error"
+            ) if response else "No response"
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Delete Project",
+                f"Failed to delete project:\n{detail}",
+            )
+            return
+
+        self._refresh_projects()
 
     @QtCore.Slot()
     def _on_quit(self) -> None:
@@ -397,8 +484,6 @@ class StartupWindow(QtWidgets.QDialog):
             port: The server port number
         """
         from gui.api_client import APIClient
-        from datetime import datetime
-
         self._user_id = user_id
         self._server_url = f"http://{ip}:{port}"
 
@@ -413,57 +498,9 @@ class StartupWindow(QtWidgets.QDialog):
             )
             return
 
-        # Fetch projects from server
-        projects_response = api_client.list_projects()
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Projects API response: {projects_response}")
-
-        if not projects_response:
-            QtWidgets.QMessageBox.warning(
-                self, "Load Error", "No response from server when fetching projects"
-            )
-            return
-
-        if projects_response.get("status") != "OK":
-            error_msg = projects_response.get("detail", "Unknown error")
-            QtWidgets.QMessageBox.warning(
-                self, "Load Error", f"Failed to load projects: {error_msg}"
-            )
-            return
-
-        # Populate the file table with projects
-        projects = projects_response.get("serialized", [])
-
-        self._ftable.clearContents()
-        self._ftable.setRowCount(0)
-        self._ftable.setHorizontalHeaderLabels(self._ftable._opts.columns)
-
-        for project in projects:
-            if isinstance(project, dict):
-                project_ref = project.get("name", "Unknown")
-                project_time = project.get(
-                    "modified", datetime.now().strftime("%Y-%m-%d")
-                )
-            elif isinstance(project, str):
-                project_ref = project
-                project_time = datetime.now().strftime("%Y-%m-%d")
-            else:
-                continue
-
-            self._ftable.add_item(project_ref, project_time)
-
-        # Reconnect file table item signals
-        for row in range(self._ftable.rowCount()):
-            item = self._ftable.cellWidget(row, 0)
-            if isinstance(item, FileTableItem):
-                item.sig_open_project.connect(self._on_open_project)
-                item.sig_clone_project.connect(self._on_clone_project)
-                item.sig_delete_project.connect(self._on_delete_project)
-
-        # Switch to table and show buttons
         self._api_client = api_client
+        if not self._refresh_projects():
+            return
         self._right_stacked_widget.setCurrentIndex(1)
 
     @QtCore.Slot()
@@ -505,6 +542,54 @@ class StartupWindow(QtWidgets.QDialog):
     def get_api_client(self):
         """Return the authenticated API client created during startup."""
         return self._api_client
+
+    def _refresh_projects(self) -> bool:
+        """Reload the server-side project list into the table."""
+        from datetime import datetime
+
+        if not self._api_client:
+            return False
+
+        projects_response = self._api_client.list_projects()
+        if not projects_response:
+            QtWidgets.QMessageBox.warning(
+                self, "Load Error", "No response from server when fetching projects"
+            )
+            return False
+
+        if projects_response.get("status") != "OK":
+            error_msg = projects_response.get("detail", "Unknown error")
+            QtWidgets.QMessageBox.warning(
+                self, "Load Error", f"Failed to load projects: {error_msg}"
+            )
+            return False
+
+        self._ftable.clearContents()
+        self._ftable.setRowCount(0)
+        self._ftable.setHorizontalHeaderLabels(self._ftable._opts.columns)
+
+        for project in projects_response.get("serialized", []):
+            if isinstance(project, dict):
+                project_ref = project.get("name", "Unknown")
+                project_time = project.get(
+                    "modified", datetime.now().strftime("%Y-%m-%d")
+                )
+            elif isinstance(project, str):
+                project_ref = project
+                project_time = datetime.now().strftime("%Y-%m-%d")
+            else:
+                continue
+
+            self._ftable.add_item(project_ref, project_time)
+
+        for row in range(self._ftable.rowCount()):
+            item = self._ftable.cellWidget(row, 0)
+            if isinstance(item, FileTableItem):
+                item.sig_open_project.connect(self._on_open_project)
+                item.sig_clone_project.connect(self._on_clone_project)
+                item.sig_delete_project.connect(self._on_delete_project)
+
+        return True
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
 
