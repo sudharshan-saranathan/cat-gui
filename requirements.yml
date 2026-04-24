@@ -1,0 +1,16 @@
+name: cat-env
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # GUI
+  - pyside6
+  - pyqtgraph
+  - qtawesome
+  - geopandas
+  - fastapi
+  - uvicorn
+  - pandas
+  - pyomo
+  - h5py
