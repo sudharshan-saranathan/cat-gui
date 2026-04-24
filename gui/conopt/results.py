@@ -37,8 +37,8 @@ class ResultsWindow(QtWidgets.QFrame):
         self._explore_panel.setVisible(False)
         splitter.addWidget(self._explore_panel)
 
-        # Set splitter proportions: 60% table, 40% explore
-        splitter.setSizes([600, 400])
+        # Set splitter proportions: 50% table, 50% explore
+        splitter.setSizes([500, 500])
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 1)
 
@@ -68,6 +68,7 @@ class ResultsWindow(QtWidgets.QFrame):
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Fixed)
+        table.itemSelectionChanged.connect(self._on_table_selection_changed)
 
         self._table = table
         self._refresh_table()
@@ -97,6 +98,10 @@ class ResultsWindow(QtWidgets.QFrame):
                 "ccus",
                 "total_count",
                 "total_steel",
+                "bfbof_share",
+                "coaldri_share",
+                "ngdri_share",
+                "h2dri_share",
                 "total_emissions",
                 "total_cost",
                 "ccus_penetration",
@@ -213,6 +218,12 @@ class ResultsWindow(QtWidgets.QFrame):
 
         return "\n".join(lines)
 
+    def _on_table_selection_changed(self) -> None:
+        row = self._table.currentRow()
+        if row < 0 or row >= len(self._runs):
+            return
+        self._on_explore(row)
+
     def _on_explore(self, row: int) -> None:
         """Show explore panel for a scenario."""
         self._current_scenario_idx = row
@@ -276,6 +287,23 @@ class ResultsWindow(QtWidgets.QFrame):
                 values.append(emissions[year_str])
             label = "CO₂ (Mt/year)"
             color = "red"
+        elif variable in {
+            "bfbof_share",
+            "coaldri_share",
+            "ngdri_share",
+            "h2dri_share",
+        }:
+            pathway_map = {
+                "bfbof_share": ("BFBOF", "BFBOF Share (%)", "firebrick"),
+                "coaldri_share": ("CoalDRI", "CoalDRI Share (%)", "saddlebrown"),
+                "ngdri_share": ("NGDRI", "NGDRI Share (%)", "deepskyblue"),
+                "h2dri_share": ("H2DRI", "H2DRI Share (%)", "limegreen"),
+            }
+            pathway_key, label, color = pathway_map[variable]
+            shares = self._pathway_shares_by_year(run["info"])
+            for year_str in sorted(shares.keys(), key=lambda x: int(x)):
+                years.append(int(year_str))
+                values.append(shares[year_str].get(pathway_key, 0))
         elif variable == "total_cost":
             cost = run["info"].get("annual_cost", {})
             for year_str in sorted(cost.keys(), key=lambda x: int(x)):
@@ -355,6 +383,24 @@ class ResultsWindow(QtWidgets.QFrame):
             emissions = run["info"].get("annual_emissions", {})
             for year_str in sorted(emissions.keys(), key=lambda x: int(x)):
                 rows.append([year_str, f"{emissions[year_str]:.2f}"])
+
+        elif variable in {
+            "bfbof_share",
+            "coaldri_share",
+            "ngdri_share",
+            "h2dri_share",
+        }:
+            pathway_map = {
+                "bfbof_share": ("BFBOF", "BFBOF Share (%)"),
+                "coaldri_share": ("CoalDRI", "CoalDRI Share (%)"),
+                "ngdri_share": ("NGDRI", "NGDRI Share (%)"),
+                "h2dri_share": ("H2DRI", "H2DRI Share (%)"),
+            }
+            pathway_key, header = pathway_map[variable]
+            headers = ["Year", header]
+            shares = self._pathway_shares_by_year(run["info"])
+            for year_str in sorted(shares.keys(), key=lambda x: int(x)):
+                rows.append([year_str, f"{shares[year_str].get(pathway_key, 0):.1f}"])
 
         elif variable == "total_cost":
             headers = ["Year", "Cost (₹ Trillion/year)"]
